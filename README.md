@@ -64,7 +64,7 @@ ImmediateOutput.setExtension(job, ".gz");
 ImmediateOutput.setReplication(job, (short) 2);
 ```
 
-Now, to use it in your mapper / reducer, you need to create a instance as follows:
+Now, to use it in your mapper / reducer, you need to create an instance as follows:
 
 ```java
 private ImmediateOutput output;
