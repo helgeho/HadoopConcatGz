@@ -88,8 +88,8 @@ GZipBytes gzip = new GZipBytes();
 OutputStream out = gzip.open();
 out.write(...);
 ...
-byte[] bytes = ;
-output.write(out.close(), "location/relative/to/outPath/raw");
+byte[] bytes = out.close();
+output.write(bytes, "location/relative/to/outPath/raw");
 ...
 DataOutputStream data = gzip.openData();
 data.writeInt(123);
