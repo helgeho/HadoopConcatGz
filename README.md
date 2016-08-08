@@ -8,7 +8,7 @@ Such compressed files can be split by identifying the start of a new record and 
 One application that heavily uses concatenated GZIP files is Web archives.
 The standardized data format [WARC](https://en.wikipedia.org/wiki/Web_ARChive) is typically stored in GZIP files with every record being a separate GZIP record.
 
-We provide both, one general input format for concatenated GZIP files (*ConcatGzipInputFormat*) as well as a specialized one for *.warc.gz files, i.e., WARC records stored in concatenated GZIP files (*WarcGzInputFormat*). The *WarcGzInputFormat* also serves as an example to show how to easily implement custom input formats based on concatenated GZIP files.
+We provide both, one general input format for concatenated GZIP files (*ConcatGzipInputFormat*) as well as a specialized one for \*.warc.gz files, i.e., WARC records stored in concatenated GZIP files (*WarcGzInputFormat*). The *WarcGzInputFormat* also serves as an example to show how to easily implement custom input formats based on concatenated GZIP files.
 
 ### [ConcatGzipInputFormat](src/main/de/l3s/concatgz/io/ConcatGzipInputFormat.java)
 
