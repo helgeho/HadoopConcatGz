@@ -21,7 +21,7 @@ To decompress and read the contents, you can load the byte array into an input s
 ByteArrayInputStream in = new ByteArrayInputStream(value.copyBytes());
 GZIPInputStream decompressed = new GZIPInputStream(in);
 ...
-gzip.read();
+decompressed.read();
 ...
 decompressed.close();
 ```
@@ -40,7 +40,7 @@ WarcRecord warc = value.getRecord();
 ArchiveRecord record = warc.getRecord();
 ArchiveRecordHeader header = warc.getHeader();
 if (warc.isHttp()) {
-    Map<String, String> httpHeaders = getHttpHeaders();
+    Map<String, String> httpHeaders = warc.getHttpHeaders();
     byte[] body = warc.getHttpBody();
     String bodyString = warc.getHttpStringBody();
     String mime = warc.getHttpMimeType();
