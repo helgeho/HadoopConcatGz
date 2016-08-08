@@ -97,7 +97,7 @@ data.writeInt(123);
 bytes = data.close();
 output.write(bytes, "location/relative/to/outPath/data");
 ...
-PrintStream print = gzip.open();
+PrintStream print = gzip.openPrint();
 print.println("text");
 ...
 bytes = print.close();
