@@ -1,6 +1,6 @@
 # A Splitable Hadoop InputFormat for Concatenated GZIP Files
 
-GZIP compressed files are usually considered to be non-splittable.
+GZIP compressed files are usually considered to be non-splitable.
 This makes them a rather impractical input format for distributed processing / [Hadoop](http://hadoop.apache.org), which stores its files in a distributed filesystem and exploits data locality to gain efficiency.
 However, a GZIP file may be comprised of multiple concatenated GZIP records, which constitutes a valid GZIP file again.
 Such compressed files can be split by identifying the start of a new record and this way, can be used by Hadoop much more efficiently.
