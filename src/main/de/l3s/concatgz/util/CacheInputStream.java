@@ -12,10 +12,14 @@
 
 package de.l3s.concatgz.util;
 
+import com.google.common.io.ByteSource;
+import com.google.common.io.FileBackedOutputStream;
+
 import java.io.*;
 
 public class CacheInputStream extends InputStream {
-    private ByteArrayOutputStream cache = new ByteArrayOutputStream();
+    private FileBackedOutputStream cache;
+
     private ByteArrayInputStream buffer = new ByteArrayInputStream(new byte[0]);
 
     private InputStream in;
@@ -26,20 +30,21 @@ public class CacheInputStream extends InputStream {
     public CacheInputStream(InputStream in, int bufferSize) {
         this.in = in;
         this.bufferSize = bufferSize;
+        this.cache = new FileBackedOutputStream(bufferSize * bufferSize);
     }
 
-    public ByteArrayOutputStream getCache() {
+    public FileBackedOutputStream getCache() {
         return cache;
     }
 
-    public void setCache(ByteArrayOutputStream cache) {
+    public void setCache(FileBackedOutputStream cache) {
         this.cache = cache;
     }
 
-    public InputStream getCacheStream() {
-        byte[] cacheBytes = cache.toByteArray();
-        ByteArrayInputStream cacheStream = new ByteArrayInputStream(cacheBytes, 0, cacheBytes.length - bufferLeft);
-        return new SequenceInputStream(cacheStream, this);
+    public InputStream getCacheStream() throws IOException {
+        ByteSource cachedBytes = cache.asByteSource();
+        InputStream cachedStream = cachedBytes.slice(0, cachedBytes.size() - bufferLeft).openBufferedStream();
+        return new SequenceInputStream(cachedStream, this);
     }
 
     @Override
@@ -96,6 +101,12 @@ public class CacheInputStream extends InputStream {
         buffer = new ByteArrayInputStream(merged.toByteArray());
 
         return Math.min(bufferLeft, len);
+    }
+
+    @Override
+    public void close() throws IOException {
+        cache.reset();
+        cache.close();
     }
 
     @Override

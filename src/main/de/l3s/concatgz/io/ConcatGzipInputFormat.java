@@ -12,12 +12,13 @@
 
 package de.l3s.concatgz.io;
 
+import com.google.common.io.ByteSource;
+import com.google.common.io.FileBackedOutputStream;
 import de.l3s.concatgz.util.CacheInputStream;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.JobContext;
@@ -26,32 +27,30 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 
-import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 
-public class ConcatGzipInputFormat extends FileInputFormat<Text, BytesWritable> {
-    public static class ConcatGzipRecordReader extends RecordReader<Text, BytesWritable> {
-        private int bufferSize = 4096;
-        private byte firstGzip = (byte)GZIPInputStream.GZIP_MAGIC;
-        private byte secondGzip = (byte)(GZIPInputStream.GZIP_MAGIC >> 8);
+public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytesWritable> {
+    public static class ConcatGzipRecordReader extends RecordReader<Text, FileBackedBytesWritable> {
+        static final int BUFFER_SIZE = 4096;
+        static final byte FIRST_GZIP_BYTE = (byte) GZIPInputStream.GZIP_MAGIC;
+        static final byte SECOND_GZIP_BYTE = (byte)(GZIPInputStream.GZIP_MAGIC >> 8);
 
         private TaskAttemptContext context = null;
         private long start = 0L;
         private long end = 0L;
         private long pos = 0L;
         private String filename = null;
-        private InputStream in = null; //FSDataInputStream in = null;
+        private InputStream in = null;
 
         private Text key = new Text();
-        private BytesWritable value = new BytesWritable();
+        private FileBackedBytesWritable value = new FileBackedBytesWritable();
 
-        private ByteArrayOutputStream record = null;
         private CacheInputStream cache = null;
         private InputStream cacheIn = null;
-        private int cachePos = 0;
+        private long cachePos = 0;
         private boolean hasNext = false;
 
         public String getFilename() {
@@ -76,15 +75,15 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, BytesWritable> 
             filename = file.getName();
 
             FileSystem fs = file.getFileSystem(job);
-            FSDataInputStream fsIn = fs.open(file, bufferSize);
+            FSDataInputStream fsIn = fs.open(file, BUFFER_SIZE);
             fsIn.seek(start);
             in = fsIn;
 
-            cache = new CacheInputStream(in, bufferSize);
+            cache = new CacheInputStream(in, BUFFER_SIZE);
             cacheIn = cache.getCacheStream();
             cachePos = 0;
 
-            hasNext = skipToNextRecord(true);
+            hasNext = skipToNextRecord(null);
         }
 
         public void initialize(String path) throws IOException, InterruptedException {
@@ -97,28 +96,31 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, BytesWritable> 
             in = new FileInputStream(path);
             in.skip(start);
 
-            cache = new CacheInputStream(in, bufferSize);
+            cache = new CacheInputStream(in, BUFFER_SIZE);
             cacheIn = cache.getCacheStream();
             cachePos = 0;
 
-            hasNext = skipToNextRecord(true);
+            hasNext = skipToNextRecord(null);
         }
 
-        private boolean skipToNextRecord(boolean findFirst) throws IOException {
+        private int debugCount = 0;
+        private boolean skipToNextRecord(FileBackedOutputStream record) throws IOException {
+            boolean findFirst = record == null;
             boolean beyondSplit = !findFirst;
-            byte[] buffer = new byte[bufferSize];
+            byte[] buffer = new byte[BUFFER_SIZE];
             int read = cacheIn.read(buffer);
             int bufferPos = 2;
             if (!findFirst) {
-                bufferPos += 1;
-                pos += 1;
-                cachePos += 1;
+                bufferPos++;
+                pos++;
+                cachePos++;
             }
             if (read < bufferPos) return false;
             byte first = buffer[bufferPos - 2];
             byte second = buffer[bufferPos - 1];
             boolean isGzip = checkGzipMagic(first, second);
             do {
+                debugCount++;
                 if (context != null) context.progress();
                 if (!isGzip) {
                     if (!beyondSplit && pos >= end) return false;
@@ -131,19 +133,28 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, BytesWritable> 
                         second = buffer[0];
                         bufferPos = 0;
                     }
-                    bufferPos += 1;
-                    pos += 1;
-                    cachePos += 1;
+                    bufferPos++;
+                    pos++;
+                    cachePos++;
                     isGzip = checkGzipMagic(first, second);
                 }
                 if (isGzip) {
-                    byte[] cacheBytes = cache.getCache().toByteArray();
-                    if (record != null) record.write(cacheBytes, 0, cachePos);
-                    ByteArrayOutputStream newCache = new ByteArrayOutputStream();
-                    newCache.write(cacheBytes, cachePos, cacheBytes.length - cachePos);
+                    FileBackedOutputStream cached = cache.getCache();
+                    ByteSource cachedBytes = cached.asByteSource();
+                    if (record != null) cachedBytes.slice(0, cachePos).copyTo(record);
+
+                    FileBackedOutputStream newCache = new FileBackedOutputStream(BUFFER_SIZE * BUFFER_SIZE);
+                    cachedBytes.slice(cachePos, cachedBytes.size() - cachePos).copyTo(newCache);
                     cache.setCache(newCache);
+                    cached.close();
+
                     isGzip = checkGzip(cache.getCacheStream());
-                    cacheIn = cache.getCacheStream();
+                    try {
+                        cacheIn = cache.getCacheStream();
+                    } catch (Exception e) {
+                        System.out.println("debug: " + debugCount);
+                        throw e;
+                    }
                     cachePos = 0;
                     if (!isGzip) {
                         read = cacheIn.read(buffer);
@@ -156,7 +167,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, BytesWritable> 
 
         private boolean checkGzipMagic(byte first, byte second) throws IOException
         {
-            return (first == firstGzip && second == secondGzip);
+            return (first == FIRST_GZIP_BYTE && second == SECOND_GZIP_BYTE);
         }
 
         private boolean checkGzip(InputStream stream) {
@@ -167,14 +178,6 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, BytesWritable> 
                 return true;
             } catch (Exception e) {
                 return false;
-            } finally {
-                if (gzip != null) {
-                    try {
-                        gzip.close();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
             }
         }
 
@@ -189,14 +192,13 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, BytesWritable> 
 
             key.set(filename + ":" + pos);
 
-            record = new ByteArrayOutputStream();
-            hasNext = skipToNextRecord(false);
-            if (!hasNext) record.write(cache.getCache().toByteArray());
+            FileBackedOutputStream record = new FileBackedOutputStream(BUFFER_SIZE * BUFFER_SIZE);
+            hasNext = skipToNextRecord(record);
+            if (!hasNext) cache.getCache().asByteSource().copyTo(record); // write remaining cache out to record
             hasNext = hasNext && pos < end;
 
-            byte[] bytes = record.toByteArray();
-            value.set(bytes, 0, bytes.length);
-            record = null;
+            value.closeStream();
+            value.set(record);
 
             return true;
         }
@@ -207,18 +209,20 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, BytesWritable> 
         }
 
         @Override
-        public BytesWritable getCurrentValue() throws IOException, InterruptedException {
+        public FileBackedBytesWritable getCurrentValue() throws IOException, InterruptedException {
             return value;
         }
 
         @Override
-        public void close() throws IOException {
+        public synchronized void close() throws IOException {
+            value.closeStream();
+            cache.close();
             in.close();
         }
     }
 
     @Override
-    public RecordReader<Text, BytesWritable> createRecordReader(InputSplit inputSplit, TaskAttemptContext taskAttemptContext) throws IOException, InterruptedException {
+    public RecordReader<Text, FileBackedBytesWritable> createRecordReader(InputSplit inputSplit, TaskAttemptContext taskAttemptContext) throws IOException, InterruptedException {
         return new ConcatGzipRecordReader();
     }
 
@@ -229,11 +233,12 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, BytesWritable> 
 
     public static void main(String[] args) throws Exception {
         ConcatGzipRecordReader reader = new ConcatGzipRecordReader();
-        reader.initialize("C:\\Users\\holzmann\\DOTUK-HISTORICAL-1996-2010-GROUP-WARC-XAAAAA-20110706000000-000000.warc.gz");
+        reader.initialize("C:\\Users\\holzmann\\DOTUK-HISTORICAL-1996-2010-PHASE2WARCS-XAABDC-20111115000000-000000.warc.gz");
 
         int count = 0;
         while (reader.nextKeyValue()) {
-            count += 1;
+            count++;
+            System.out.println(count);
         }
 
         System.out.println(count);

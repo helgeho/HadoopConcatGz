@@ -36,7 +36,7 @@ public class ImmediateOutput {
     private short replication;
     private Map<String, OutputStream> streams = new HashMap<>();
 
-    private static final String CONFIG_KEY_BASE = "de.l3s.concatgz.io.immediateoutput";
+    private static final String CONFIG_KEY_BASE = "de.l3s.mapreduce.io.immediateoutput";
     public static final String ID_PREFIX_KEY = CONFIG_KEY_BASE + ".idprefix";
     public static final String EXTENSION_KEY = CONFIG_KEY_BASE + ".extension";
     public static final String PATH_KEY = CONFIG_KEY_BASE + ".path";
@@ -117,6 +117,10 @@ public class ImmediateOutput {
         OutputStream stream = stream(base, extension);
         stream.write(out);
         if (flushOnWrite) stream.flush();
+    }
+
+    public OutputStream stream(String base) throws IOException {
+        return stream(base, getExtension(context.getConfiguration()));
     }
 
     public OutputStream stream(String base, String extension) throws IOException {

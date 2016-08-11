@@ -12,13 +12,13 @@ We provide both, one general input format for concatenated GZIP files (*ConcatGz
 
 ### [ConcatGzipInputFormat](src/main/de/l3s/concatgz/io/ConcatGzipInputFormat.java)
 
-If configured as input format in your Hadoop job, the key in your mapper will be of *Text* and the value of type *BytesWritable*.
+If configured as input format in your Hadoop job, the key in your mapper will be of *Text* and the value of type *FileBackedBytesWritable*, which is based on Google's *[com.google.common.io.FileBackedOutputStream](https://google.github.io/guava/releases/19.0/api/docs/com/google/common/io/FileBackedOutputStream.html)*.
 The key contains the filname as well as the position of the current value in the form *filename:position*.
-The value contains the currnet GZIP record as bytes, which can be accessed by calling *value.copyBytes()*.
-To decompress and read the contents, you can load the byte array into an input stream:
+The value contains the current GZIP record as bytes, which can be accessed by calling *value.getBytes()* as *[com.google.common.io.ByteSource](https://google.github.io/guava/releases/19.0/api/docs/com/google/common/io/ByteSource.html)*.
+To decompress the contents you can read the bytes through input stream:
 
 ```java
-ByteArrayInputStream in = new ByteArrayInputStream(value.copyBytes());
+ByteArrayInputStream in = value.getBytes().openBufferedStream();
 GZIPInputStream decompressed = new GZIPInputStream(in);
 ...
 decompressed.read();
@@ -28,8 +28,8 @@ decompressed.close();
 
 ### [WarcGzInputFormat](src/main/de/l3s/concatgz/io/warc/WarcGzInputFormat.java)
 
-This input format gives you only a value of type *WarcWritable*, with the key being of type *NullWritable*.
-*WarcWritable* provides access to the raw (compressed) bytes, the filename, the offset as well as wrapped *[WarcRecord](src/main/de/l3s/concatgz/data/WarcRecord.java)* with convenient getter methods to read headers, contents and parsed HTTP responses.
+This input format gives you only a value of type *[WarcWritable](src/main/de/l3s/concatgz/io/warc/WarcWritable.java)*, with the key being of type *NullWritable*.
+*WarcWritable* provides access to the raw (compressed) bytes, the filename, the offset as well as a wrapped *[WarcRecord](src/main/de/l3s/concatgz/data/WarcRecord.java)* with convenient getter methods to read headers, contents and parsed HTTP responses.
 
 ```java
 ...

@@ -12,15 +12,15 @@
 
 package de.l3s.concatgz.io.warc;
 
+import com.google.common.io.FileBackedOutputStream;
 import de.l3s.concatgz.data.WarcRecord;
-import org.apache.hadoop.io.BytesWritable;
+import de.l3s.concatgz.io.FileBackedBytesWritable;
 
-import java.io.ByteArrayInputStream;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
-public class WarcWritable extends BytesWritable {
+public class WarcWritable extends FileBackedBytesWritable {
     private boolean valid = true;
     private WarcRecord record = null;
     private String filename = null;
@@ -47,8 +47,7 @@ public class WarcWritable extends BytesWritable {
 
     private void readRecord() throws IOException {
         if (record != null || !valid) return;
-        ByteArrayInputStream stream = new ByteArrayInputStream(copyBytes());
-        record = WarcRecord.get(filename, stream);
+        record = WarcRecord.get(filename, getBytes().openBufferedStream());
         valid = record != null;
     }
 
@@ -63,27 +62,15 @@ public class WarcWritable extends BytesWritable {
     }
 
     @Override
-    public void set(BytesWritable newData) {
+    public void set(FileBackedOutputStream newData) throws IOException {
         clear();
         super.set(newData);
     }
 
     @Override
-    public void set(byte[] newData, int offset, int length) {
+    public void set(FileBackedBytesWritable newData) throws IOException {
         clear();
-        super.set(newData, offset, length);
-    }
-
-    @Override
-    public void setSize(int size) {
-        clear();
-        super.setSize(size);
-    }
-
-    @Override
-    public void setCapacity(int new_cap) {
-        clear();
-        super.setCapacity(new_cap);
+        super.set(newData);
     }
 
     @Override
