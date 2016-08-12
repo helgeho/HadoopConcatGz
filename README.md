@@ -10,7 +10,7 @@ The standardized data format [WARC](https://en.wikipedia.org/wiki/Web_ARChive) i
 
 We provide both, one general input format for concatenated GZIP files (*ConcatGzipInputFormat*) as well as a specialized one for \*.warc.gz files, i.e., WARC records stored in concatenated GZIP files (*WarcGzInputFormat*). The *WarcGzInputFormat* also serves as an example to show how to easily implement custom input formats based on concatenated GZIP files.
 
-### [ConcatGzipInputFormat](src/main/de/l3s/concatgz/io/ConcatGzipInputFormat.java)
+### [ConcatGzipInputFormat](src/main/java/de/l3s/concatgz/io/ConcatGzipInputFormat.java)
 
 If configured as input format in your Hadoop job, the key in your mapper will be of *Text* and the value of type *FileBackedBytesWritable*, which is based on Google's *[com.google.common.io.FileBackedOutputStream](https://google.github.io/guava/releases/19.0/api/docs/com/google/common/io/FileBackedOutputStream.html)*.
 The key contains the filname as well as the position of the current value in the form *filename:position*.
@@ -26,10 +26,10 @@ decompressed.read();
 decompressed.close();
 ```
 
-### [WarcGzInputFormat](src/main/de/l3s/concatgz/io/warc/WarcGzInputFormat.java)
+### [WarcGzInputFormat](src/main/java/de/l3s/concatgz/io/warc/WarcGzInputFormat.java)
 
-This input format gives you only a value of type *[WarcWritable](src/main/de/l3s/concatgz/io/warc/WarcWritable.java)*, with the key being of type *NullWritable*.
-*WarcWritable* provides access to the raw (compressed) bytes, the filename, the offset as well as a wrapped *[WarcRecord](src/main/de/l3s/concatgz/data/WarcRecord.java)* with convenient getter methods to read headers, contents and parsed HTTP responses.
+This input format gives you only a value of type *[WarcWritable](src/main/java/de/l3s/concatgz/io/warc/WarcWritable.java)*, with the key being of type *NullWritable*.
+*WarcWritable* provides access to the raw (compressed) bytes, the filename, the offset as well as a wrapped *[WarcRecord](src/main/java/de/l3s/concatgz/data/WarcRecord.java)* with convenient getter methods to read headers, contents and parsed HTTP responses.
 
 ```java
 ...
@@ -53,7 +53,7 @@ if (warc.isHttp()) {
 
 To facilitate the output with Hadoop and allow for easy creation of GZIP records and concatenated GZIP files, we provide some helper classes:
 
-[*ImmediateOutput*](src/main/de/l3s/concatgz/io/ImmediateOutput.java) enables you to write out data directly to HDFS without using Hadoop output mechanisms.
+[*ImmediateOutput*](src/main/java/de/l3s/concatgz/io/ImmediateOutput.java) enables you to write out data directly to HDFS without using Hadoop output mechanisms.
 It takes care of a unique naming per task and overwrites files in case of failed and rerun tasks.
 This is how you configure your Hadoop job to use *ImmediateOutput*:
 ```java
@@ -80,7 +80,7 @@ public void cleanup(Context context) throws IOException, InterruptedException {
 }
 ```
 
-[*GZipBytes*](src/main/de/l3s/concatgz/util/GZipBytes.java) lets you output any kind of data into a GZIP compressed byte array, that you can write out using your *ImmediateOutput*:
+[*GZipBytes*](src/main/java/de/l3s/concatgz/util/GZipBytes.java) lets you output any kind of data into a GZIP compressed byte array, that you can write out using your *ImmediateOutput*:
 
 ```java
 GZipBytes gzip = new GZipBytes();
