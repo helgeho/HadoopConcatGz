@@ -112,8 +112,7 @@ public class WarcRecord {
         Map<String, String> headers = getHttpHeaders();
         String type = headers.get(MIME_TYPE_HTTP_HEADER);
         if (type == null) return null;
-        String[] split = type.split(";");
-        return split.length == 0 ? "" : split[0].trim();
+        return type.split(";")[0].trim();
     }
 
     public byte[] getHttpBody() throws IOException {

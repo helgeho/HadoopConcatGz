@@ -87,22 +87,14 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
         }
 
         public void initialize(String path) throws IOException, InterruptedException {
-            Path file = new Path(path);
-            String filename = file.getName();
-
-            FileInputStream in = new FileInputStream(path);
-            in.skip(start);
-
-            initialize(in, filename);
-        }
-
-        public void initialize(InputStream in, String filename) throws IOException, InterruptedException {
             start = 0;
             pos = start;
             end = Long.MAX_VALUE;
+            Path file = new Path(path);
+            filename = file.getName();
 
-            this.filename = filename;
-            this.in = in;
+            in = new FileInputStream(path);
+            in.skip(start);
 
             cache = new CacheInputStream(in, BUFFER_SIZE);
             cacheIn = cache.getCacheStream();
