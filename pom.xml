@@ -8,6 +8,14 @@
     <name>HadoopConcatGz</name>
     <url>http://www.L3S.de</url>
 
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>http://www.opensource.org/licenses/mit-license.php</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
     <repositories>
         <repository>
             <id>cloudera</id>
