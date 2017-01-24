@@ -111,6 +111,25 @@ The easiest way to build a JAR file of this project that you can add to your Had
 
 `mvn package`
 
+## Maven
+
+If you want to add this library as a dependency to your project, you can get it from the [Internet Archive](http://archive.org)'s build server under http://builds.archive.org/maven2/de/l3s/hadoop-concat-gz (thanks for hosting this!).
+
+In order to use it with your [Spark](http://spark.apache.org) project, add this as a new resolver:
+```scala
+resolvers ++= Seq("internetarchive" at "http://builds.archive.org/maven2")
+```
+
+Now you can add the dependency as follows:
+```scala
+libraryDependencies ++= Seq("de.l3s" % "hadoop-concat-gz" % "1.0-SNAPSHOT")
+```
+
+Finally, load your WARC dataset into an RDD:
+```scala
+val rdd = sc.newAPIHadoopFile(INPUT_PATH, classOf[ConcatGzipInputFormat], classOf[Text], classOf[FileBackedBytesWritable
+```
+
 ## License
 
 The MIT License (MIT)
