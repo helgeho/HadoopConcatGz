@@ -74,11 +74,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
 
             FileSystem fs = file.getFileSystem(job);
             FSDataInputStream fsIn = fs.open(file, BUFFER_SIZE);
-            if (start == pos && pos > 0 && false) {
-                fsIn.seek(start - 2);
-                start -= 2;
-                pos -= 2;
-            } else fsIn.seek(start);
+	    fsIn.seek(start);
             in = fsIn;
 
             hasNext = true; // skipToNextRecord(null);
@@ -164,7 +160,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
                     if (checkGzip(data, i, length - i)) {
                         //System.out.println("Actual GZIp at: " + i);
 			// TODO: should this return length + start to get back the correct index into data?
-                        return i;
+                        return start+i;
                     }
                 }
             }
