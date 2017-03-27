@@ -159,8 +159,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
                     //System.out.println("Possible GZIp at: " + i);
                     if (checkGzip(data, i, length - i)) {
                         //System.out.println("Actual GZIp at: " + i);
-			// TODO: should this return length + start to get back the correct index into data?
-                        return start+i;
+                        return i;
                     }
                 }
             }
