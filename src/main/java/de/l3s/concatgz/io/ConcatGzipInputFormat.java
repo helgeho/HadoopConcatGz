@@ -80,7 +80,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
             hasNext = true; // skipToNextRecord(null);
         }
 
-        private void initialize(String path) throws IOException, InterruptedException {
+        public void initialize(String path) throws IOException, InterruptedException {
             Path file = new Path(path);
             String filename = file.getName();
 
@@ -90,7 +90,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
             initialize(in, filename);
         }
 
-        private void initialize(InputStream in, String filename) throws IOException, InterruptedException {
+        public void initialize(InputStream in, String filename) throws IOException, InterruptedException {
             start = 0;
             pos = start;
             end = Long.MAX_VALUE;
