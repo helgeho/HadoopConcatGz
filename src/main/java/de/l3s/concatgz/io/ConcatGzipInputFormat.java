@@ -115,6 +115,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
                 cache = new PushbackInputStream(in, BUFFER_SIZE);
             }
 
+	    /* read until we find a GZIP location or have no more data */
             do {
                 read = cache.read(buffer);
                 if (read <= 0) {
@@ -125,9 +126,12 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
             /* Save start of the found GZIP stream to set key value later */
             lastRecordOffset = bytesRead - (read - gzipBytesLocation);
             //System.out.println("lastRecOff: " + lastRecordOffset + " bytesRead: " + bytesRead + " pos: " + pos);
+	    /* offset of the found GZIP location in the current buffer */
             startOffset = gzipBytesLocation;
 
+	    /* is there enough data left to look for another GZIP location in the current buffer? */
             int from = gzipBytesLocation + 2 < read - 2 ? gzipBytesLocation + 2 : read;
+
             while (read > 0 && (gzipBytesLocation = findAndCheckGZIP(buffer, from, read)) == -1) {
                 if (read <= 0) {
                     return false;
@@ -142,8 +146,9 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
                 bytesRead += read;
             }
 
-
+	    /* write out the current buffer up to the next GZIP location */
             record.write(buffer, startOffset, Math.max(0, gzipBytesLocation) - startOffset);
+	    /* accounting, remove the number of bytes read and add number of bytes to the next GZIP location*/
             bytesRead -= (Math.max(0, read) - Math.max(0, gzipBytesLocation));
             //System.out.println("read: " + read + " gzipBytes: " + gzipBytesLocation + " startOFfset: " + startOffset + " bytesRead: " + bytesRead);
             pos = bytesRead;
@@ -158,6 +163,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
                     //System.out.println("Possible GZIp at: " + i);
                     if (checkGzip(data, i, length - i)) {
                         //System.out.println("Actual GZIp at: " + i);
+			// TODO: should this return length + start to get back the correct index into data?
                         return i;
                     }
                 }
