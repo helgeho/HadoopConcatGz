@@ -12,9 +12,7 @@
 
 package de.l3s.concatgz.io;
 
-import com.google.common.io.ByteSource;
 import com.google.common.io.FileBackedOutputStream;
-import de.l3s.concatgz.util.CacheInputStream;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -27,30 +25,29 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.util.Arrays;
 import java.util.zip.GZIPInputStream;
 
 public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytesWritable> {
     public static class ConcatGzipRecordReader extends RecordReader<Text, FileBackedBytesWritable> {
-        static final int BUFFER_SIZE = 4096;
-        static final byte FIRST_GZIP_BYTE = (byte) GZIPInputStream.GZIP_MAGIC;
-        static final byte SECOND_GZIP_BYTE = (byte)(GZIPInputStream.GZIP_MAGIC >> 8);
+        static final int BUFFER_SIZE = 8192;
+        static final byte FIRST_GZIP_BYTE = (byte) 0x1f;
+        static final byte SECOND_GZIP_BYTE = (byte) 0x8b;
+        static final byte[] GZIP_MAGIC = new byte[]{FIRST_GZIP_BYTE, SECOND_GZIP_BYTE};
 
         private TaskAttemptContext context = null;
         private long start = 0L;
         private long end = 0L;
         private long pos = 0L;
+        private long lastRecordOffset = 0L;
         private String filename = null;
         private InputStream in = null;
 
         private Text key = new Text();
         private FileBackedBytesWritable value = new FileBackedBytesWritable();
 
-        private CacheInputStream cache = null;
-        private InputStream cacheIn = null;
-        private long cachePos = 0;
+        private PushbackInputStream cache = null;
         private boolean hasNext = false;
 
         public String getFilename() {
@@ -65,25 +62,22 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
         public void initialize(InputSplit genericSplit, TaskAttemptContext context) throws IOException, InterruptedException {
             this.context = context;
 
-            FileSplit split = (FileSplit)genericSplit;
+            FileSplit split = (FileSplit) genericSplit;
             Configuration job = context.getConfiguration();
 
             start = split.getStart();
             pos = start;
             end = start + split.getLength();
+            //System.out.println("Start: " + start + " length: " + split.getLength() + " end: " + end);
             Path file = split.getPath();
             filename = file.getName();
 
             FileSystem fs = file.getFileSystem(job);
             FSDataInputStream fsIn = fs.open(file, BUFFER_SIZE);
-            fsIn.seek(start);
+	    fsIn.seek(start);
             in = fsIn;
 
-            cache = new CacheInputStream(in, BUFFER_SIZE);
-            cacheIn = cache.getCacheStream();
-            cachePos = 0;
-
-            hasNext = skipToNextRecord(null);
+            hasNext = true; // skipToNextRecord(null);
         }
 
         public void initialize(String path) throws IOException, InterruptedException {
@@ -101,114 +95,140 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
             pos = start;
             end = Long.MAX_VALUE;
 
+            hasNext = true;
             this.filename = filename;
             this.in = in;
-
-            cache = new CacheInputStream(in, BUFFER_SIZE);
-            cacheIn = cache.getCacheStream();
-            cachePos = 0;
-
-            hasNext = skipToNextRecord(null);
         }
 
-        private int debugCount = 0;
         private boolean skipToNextRecord(FileBackedOutputStream record) throws IOException {
-            boolean findFirst = record == null;
-            boolean beyondSplit = !findFirst;
             byte[] buffer = new byte[BUFFER_SIZE];
-            int read = cacheIn.read(buffer);
-            int bufferPos = 2;
-            if (!findFirst) {
-                bufferPos++;
-                pos++;
-                cachePos++;
+            int read;
+            int gzipBytesLocation;
+            long bytesRead = pos;
+            int startOffset;
+
+            if (cache == null) { // pos == start && pos > 0
+                cache = new PushbackInputStream(in, BUFFER_SIZE);
             }
-            if (read < bufferPos) return false;
-            byte first = buffer[bufferPos - 2];
-            byte second = buffer[bufferPos - 1];
-            boolean isGzip = checkGzipMagic(first, second);
+
+	    /* read until we find a GZIP location or have no more data */
             do {
-                debugCount++;
-                if (context != null) context.progress();
-                if (!isGzip) {
-                    if (!beyondSplit && pos >= end) return false;
-                    first = second;
-                    if (bufferPos < read) {
-                        second = buffer[bufferPos];
-                    } else {
-                        read = cacheIn.read(buffer);
-                        if (read < 1) return false;
-                        second = buffer[0];
-                        bufferPos = 0;
-                    }
-                    bufferPos++;
-                    pos++;
-                    cachePos++;
-                    isGzip = checkGzipMagic(first, second);
+                read = cache.read(buffer);
+                if (read <= 0) {
+                    return false;
                 }
-                if (isGzip) {
-                    FileBackedOutputStream cached = cache.getCache();
-                    ByteSource cachedBytes = cached.asByteSource();
-                    if (record != null) cachedBytes.slice(0, cachePos).copyTo(record);
+                bytesRead += read;
+            } while ((gzipBytesLocation = findAndCheckGZIP(buffer, 0, read)) == -1);
+            /* Save start of the found GZIP stream to set key value later */
+            lastRecordOffset = bytesRead - (read - gzipBytesLocation);
+            //System.out.println("lastRecOff: " + lastRecordOffset + " bytesRead: " + bytesRead + " pos: " + pos);
+	    /* offset of the found GZIP location in the current buffer */
+            startOffset = gzipBytesLocation;
 
-                    FileBackedOutputStream newCache = new FileBackedOutputStream(BUFFER_SIZE * BUFFER_SIZE);
-                    cachedBytes.slice(cachePos, cachedBytes.size() - cachePos).copyTo(newCache);
-                    cache.setCache(newCache);
-                    cached.close();
+	    /* is there enough data left to look for another GZIP location in the current buffer? */
+            int from = gzipBytesLocation + 2 < read - 2 ? gzipBytesLocation + 2 : read;
 
-                    isGzip = checkGzip(cache.getCacheStream());
-                    try {
-                        cacheIn = cache.getCacheStream();
-                    } catch (Exception e) {
-                        System.out.println("debug: " + debugCount);
-                        throw e;
-                    }
-                    cachePos = 0;
-                    if (!isGzip) {
-                        read = cacheIn.read(buffer);
-                        bufferPos = 2;
-                    }
+            while (read > 0 && (gzipBytesLocation = findAndCheckGZIP(buffer, from, read)) == -1) {
+                if (read <= 0) {
+                    return false;
                 }
-            } while (!isGzip);
-            return true;
+
+                record.write(buffer, startOffset, read - startOffset);
+                if (startOffset != 0)
+                    startOffset = 0;
+                if (from != 0)
+                    from = 0;
+                read = cache.read(buffer);
+                bytesRead += read;
+            }
+
+	    /* write out the current buffer up to the next GZIP location */
+            record.write(buffer, startOffset, Math.max(0, gzipBytesLocation) - startOffset);
+	    /* accounting, remove the number of bytes read and add number of bytes to the next GZIP location*/
+            bytesRead -= (Math.max(0, read) - Math.max(0, gzipBytesLocation));
+            //System.out.println("read: " + read + " gzipBytes: " + gzipBytesLocation + " startOFfset: " + startOffset + " bytesRead: " + bytesRead);
+            pos = bytesRead;
+            cache.unread(buffer, Math.max(0, gzipBytesLocation), Math.max(0, read) - Math.max(0, gzipBytesLocation));
+
+            return pos <= end;
         }
 
-        private boolean checkGzipMagic(byte first, byte second) throws IOException
-        {
-            return (first == FIRST_GZIP_BYTE && second == SECOND_GZIP_BYTE);
+        private int findAndCheckGZIP(byte[] data, int start, int length) throws IOException {
+            for (int i = start; i < length - 1; i++) {
+                if (data[i] == FIRST_GZIP_BYTE && data[i+1] == SECOND_GZIP_BYTE) {
+                    //System.out.println("Possible GZIp at: " + i);
+                    if (checkGzip(data, i, length - i)) {
+                        //System.out.println("Actual GZIp at: " + i);
+                        return i;
+                    }
+                }
+            }
+
+            if (data[length-1] == FIRST_GZIP_BYTE) {
+                //System.out.println("Found possible GZIp byte at last location");
+                if (checkGzip(data, length - 1, 1)) {
+                    //System.out.println("returned: " + (length - 1));
+                    return length - 1;
+                }
+            }
+
+            return -1;
         }
 
-        private boolean checkGzip(InputStream stream) {
-            GZIPInputStream gzip = null;
+        private boolean     checkGzip(byte[] data, int offset, int length) throws IOException {
+            /* this buffer is only used if we are near the end of the given data,
+             * since checkGzip needs some minimum of bytes to be sure that the data
+             * is valid or not */
+            byte[] buffer = null;
+            ByteArrayInputStream dataStream = new ByteArrayInputStream(data, offset, length);
+            InputStream is;
+
+            /* GZIP header has at least 20 bytes, so use a few more to be on the save side */
+            //System.out.println("length: " + length + " offset: " + offset);
+            if (length < 128) {
+                buffer = new byte[BUFFER_SIZE / 8];
+                cache.read(buffer);
+                is = new SequenceInputStream(dataStream, new ByteArrayInputStream(buffer));
+            } else {
+                is = dataStream;
+            }
+
+            GZIPInputStream gzip;
             try {
-                gzip = new GZIPInputStream(stream);
+                gzip = new GZIPInputStream(is);
                 gzip.read();
+                gzip.close();
                 return true;
             } catch (Exception e) {
                 return false;
+            } finally {
+                if (buffer != null) {
+                    is.close();
+                    cache.unread(buffer);
+                }
+
+                dataStream.close();
             }
         }
 
         @Override
         public float getProgress() throws IOException, InterruptedException {
-            return (float)((double)(Math.min(pos, end) - start) / (end - start));
+            return (float) ((double) (Math.min(pos, end) - start) / (end - start));
         }
 
         @Override
         public boolean nextKeyValue() throws IOException, InterruptedException {
             if (!hasNext) return false;
 
-            key.set(filename + ":" + pos);
-
             FileBackedOutputStream record = new FileBackedOutputStream(BUFFER_SIZE * BUFFER_SIZE);
             hasNext = skipToNextRecord(record);
-            if (!hasNext) cache.getCache().asByteSource().copyTo(record); // write remaining cache out to record
+            key.set(filename + ":" + lastRecordOffset);
             hasNext = hasNext && pos < end;
 
             value.closeStream();
             value.set(record);
 
-            return true;
+            return hasNext;
         }
 
         @Override
@@ -241,7 +261,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
 
     public static void main(String[] args) throws Exception {
         ConcatGzipRecordReader reader = new ConcatGzipRecordReader();
-        reader.initialize("C:\\Users\\holzmann\\DOTUK-HISTORICAL-1996-2010-PHASE2WARCS-XAABDC-20111115000000-000000.warc.gz");
+        reader.initialize("/home/gothos/warc/DOTUK-HISTORICAL-1996-2010-GROUP-AC-XAAUMV-20110428000000-00000.arc.gz");
 
         int count = 0;
         while (reader.nextKeyValue()) {
