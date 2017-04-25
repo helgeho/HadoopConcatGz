@@ -23,6 +23,12 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 
 import java.io.IOException;
 
+
+/**
+ * This method can't be used properly with Spark Dataset[T] type,
+ * since it requires the key/value types to be serializable,
+ * which is not possible due to the stream to the actual data file
+ */
 public class WarcGzInputFormat extends FileInputFormat<NullWritable, WarcWritable> {
     private static class WarcRecordReader extends RecordReader<NullWritable, WarcWritable> {
         private ConcatGzipInputFormat.ConcatGzipRecordReader gzip = new ConcatGzipInputFormat.ConcatGzipRecordReader();
