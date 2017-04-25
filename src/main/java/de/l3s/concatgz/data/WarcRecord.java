@@ -37,7 +37,7 @@ public class WarcRecord {
         try {
             reader = ArchiveReaderFactory.get(filename, stream, false);
             ArchiveRecord record = reader.get();
-            return new WarcRecord(reader, record);
+            return new WarcRecord(record);
         } catch (Exception readException) {
             readException.printStackTrace();
             if (reader != null) {
@@ -47,20 +47,17 @@ public class WarcRecord {
                     closeException.printStackTrace();
                 }
             }
-            return null;
         }
+        return null;
     }
 
-    private ArchiveReader reader;
     private ArchiveRecord record;
     private boolean isHttp = true;
     private HttpResponse http = null;
     private Map<String, String> httpHeaders = null;
-    private Map<String, String> mergedHeaders = null;
     private byte[] httpBody = null;
 
-    private WarcRecord(ArchiveReader reader, ArchiveRecord record) {
-        this.reader = reader;
+    private WarcRecord(ArchiveRecord record) {
         this.record = record;
     }
 
@@ -142,7 +139,7 @@ public class WarcRecord {
 
     public void close() {
         try {
-            reader.close();
+            record.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
