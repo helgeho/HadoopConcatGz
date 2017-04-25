@@ -34,9 +34,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
         static final int BUFFER_SIZE = 8192;
         static final byte FIRST_GZIP_BYTE = (byte) 0x1f;
         static final byte SECOND_GZIP_BYTE = (byte) 0x8b;
-        static final byte[] GZIP_MAGIC = new byte[]{FIRST_GZIP_BYTE, SECOND_GZIP_BYTE};
 
-        private TaskAttemptContext context = null;
         private long start = 0L;
         private long end = 0L;
         private long pos = 0L;
@@ -60,8 +58,6 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
 
         @Override
         public void initialize(InputSplit genericSplit, TaskAttemptContext context) throws IOException, InterruptedException {
-            this.context = context;
-
             FileSplit split = (FileSplit) genericSplit;
             Configuration job = context.getConfiguration();
 
