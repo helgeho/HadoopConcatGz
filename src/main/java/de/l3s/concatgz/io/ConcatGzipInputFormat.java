@@ -26,7 +26,6 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 
 import java.io.*;
-import java.util.Arrays;
 import java.util.zip.GZIPInputStream;
 
 public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytesWritable> {
@@ -223,7 +222,6 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
 
             value.closeStream();
             value.set(record);
-
             return hasNext;
         }
 
