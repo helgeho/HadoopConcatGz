@@ -142,6 +142,16 @@ public class WarcRecord {
             record.close();
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (NumberFormatException e) {
+            /* This shit should not happen. Anyway. It happens when close() is called
+            on an ArchiveRecord that then calls into WARCRecord (this is the one from
+            the Internet Archive library, not this one, duh) to actually check if there
+            is more data available. There is a parseLong in there and sometimes the length
+            of an archive is utter garbage. End of story, please go cry in a corner now. */
+
+            /* Addendum: Yes, this should not be the ArchiveRecords responsibility, but
+            rather the Readers */
+            e.printStackTrace();
         }
     }
 }
