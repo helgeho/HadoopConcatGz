@@ -16,15 +16,12 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.FileBackedOutputStream;
 import org.apache.hadoop.io.Writable;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 
-public class FileBackedBytesWritable implements Writable {
+public class FileBackedBytesWritable implements Writable, Serializable {
     static final int BUFFER_SIZE = 4096;
 
-    private FileBackedOutputStream stream = null;
+    protected transient FileBackedOutputStream stream = null;
     private boolean setExternally = false;
 
     public ByteSource getBytes() {
@@ -81,9 +78,20 @@ public class FileBackedBytesWritable implements Writable {
         byte[] buffer = new byte[BUFFER_SIZE];
         while (remaining > 0) {
             int read = BUFFER_SIZE < remaining ? BUFFER_SIZE : (int)remaining;
+            remaining -= read;
             dataInput.readFully(buffer, 0, read);
             stream.write(buffer, 0, read);
         }
         setExternally = false;
+    }
+
+    private void writeObject(java.io.ObjectOutputStream oos)
+            throws IOException {
+        write(oos);
+    }
+
+    private void readObject(java.io.ObjectInputStream ois)
+            throws IOException, ClassNotFoundException {
+        readFields(ois);
     }
 }
