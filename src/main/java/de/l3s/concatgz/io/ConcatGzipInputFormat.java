@@ -192,6 +192,8 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
             try {
                 gzip = new GZIPInputStream(is);
                 gzip.read();
+                gzip.read();
+                gzip.read();
                 gzip.close();
                 return true;
             } catch (Exception e) {
