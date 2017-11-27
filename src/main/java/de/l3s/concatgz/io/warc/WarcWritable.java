@@ -16,18 +16,18 @@ import com.google.common.io.FileBackedOutputStream;
 import de.l3s.concatgz.data.WarcRecord;
 import de.l3s.concatgz.io.FileBackedBytesWritable;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import java.io.*;
 
-public class WarcWritable extends FileBackedBytesWritable {
+public class WarcWritable extends FileBackedBytesWritable implements Serializable {
     private boolean valid = true;
-    private WarcRecord record = null;
+    private transient WarcRecord record = null;
     private String filename = null;
     private long offset = -1;
 
     public void clear() {
-        if (record != null) record.close();
+        if (record != null) {
+            record.close();
+        }
         record = null;
         valid = true;
     }
@@ -85,5 +85,19 @@ public class WarcWritable extends FileBackedBytesWritable {
         out.writeUTF(filename);
         out.writeLong(offset);
         super.write(out);
+    }
+
+    private void writeObject(java.io.ObjectOutputStream oos)
+            throws IOException {
+        write(oos);
+    }
+
+    private void readObject(java.io.ObjectInputStream ois)
+            throws IOException, ClassNotFoundException {
+        readFields(ois);
+    }
+
+    private void readObjectNoData() throws ObjectStreamException {
+        throw new NotActiveException("This method should never be called on WarcWritable");
     }
 }
