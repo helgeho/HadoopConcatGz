@@ -46,13 +46,14 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
 
         private PushbackInputStream cache = null;
         private boolean hasNext = false;
-
-        public String getFilename() {
-            return filename;
-        }
+        private boolean isWARC = false;
 
         public long getPos() {
             return pos;
+        }
+        public boolean getHasNext() { return hasNext; }
+        public String getFilename() {
+            return filename;
         }
 
         @Override
@@ -69,8 +70,10 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
 
             FileSystem fs = file.getFileSystem(job);
             FSDataInputStream fsIn = fs.open(file, BUFFER_SIZE);
-	    fsIn.seek(start);
+            fsIn.seek(start);
             in = fsIn;
+            if (this.filename.contains("warc"))
+                this.isWARC = true;
 
             hasNext = true; // skipToNextRecord(null);
         }
@@ -93,6 +96,9 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
             hasNext = true;
             this.filename = filename;
             this.in = in;
+
+            if (this.filename.contains("warc"))
+                this.isWARC = true;
         }
 
         private boolean skipToNextRecord(FileBackedOutputStream record) throws IOException {
@@ -117,17 +123,13 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
             /* Save start of the found GZIP stream to set key value later */
             lastRecordOffset = bytesRead - (read - gzipBytesLocation);
             //System.out.println("lastRecOff: " + lastRecordOffset + " bytesRead: " + bytesRead + " pos: " + pos);
-	    /* offset of the found GZIP location in the current buffer */
+        /* offset of the found GZIP location in the current buffer */
             startOffset = gzipBytesLocation;
 
 	    /* is there enough data left to look for another GZIP location in the current buffer? */
             int from = gzipBytesLocation + 2 < read - 2 ? gzipBytesLocation + 2 : read;
 
             while (read > 0 && (gzipBytesLocation = findAndCheckGZIP(buffer, from, read)) == -1) {
-                if (read <= 0) {
-                    return false;
-                }
-
                 record.write(buffer, startOffset, read - startOffset);
                 if (startOffset != 0)
                     startOffset = 0;
@@ -150,7 +152,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
 
         private int findAndCheckGZIP(byte[] data, int start, int length) throws IOException {
             for (int i = start; i < length - 1; i++) {
-                if (data[i] == FIRST_GZIP_BYTE && data[i+1] == SECOND_GZIP_BYTE) {
+                if (data[i] == FIRST_GZIP_BYTE && data[i + 1] == SECOND_GZIP_BYTE) {
                     //System.out.println("Possible GZIp at: " + i);
                     if (checkGzip(data, i, length - i)) {
                         //System.out.println("Actual GZIp at: " + i);
@@ -159,7 +161,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
                 }
             }
 
-            if (data[length-1] == FIRST_GZIP_BYTE) {
+            if (data[length - 1] == FIRST_GZIP_BYTE) {
                 //System.out.println("Found possible GZIp byte at last location");
                 if (checkGzip(data, length - 1, 1)) {
                     //System.out.println("returned: " + (length - 1));
@@ -170,7 +172,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
             return -1;
         }
 
-        private boolean     checkGzip(byte[] data, int offset, int length) throws IOException {
+        private boolean checkGzip(byte[] data, int offset, int length) throws IOException {
             /* this buffer is only used if we are near the end of the given data,
              * since checkGzip needs some minimum of bytes to be sure that the data
              * is valid or not */
@@ -180,7 +182,7 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
 
             /* GZIP header has at least 20 bytes, so use a few more to be on the save side */
             //System.out.println("length: " + length + " offset: " + offset);
-            if (length < 128) {
+            if (length < 512) {
                 buffer = new byte[BUFFER_SIZE / 8];
                 cache.read(buffer);
                 is = new SequenceInputStream(dataStream, new ByteArrayInputStream(buffer));
@@ -191,12 +193,22 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
             GZIPInputStream gzip;
             try {
                 gzip = new GZIPInputStream(is);
-                gzip.read();
-                gzip.read();
-                gzip.read();
+                byte[] gzip_buffer = new byte[256];
+
+                /* we only care if there is an exception while reading,
+                 * indicating that this is not actually GZIP data */
+                gzip.read(gzip_buffer, 0, 256);
+
+                String s = new String(gzip_buffer, "UTF-8");
+                if (this.isWARC && !s.contains("WARC")) {
+                    return false;
+                }
+
                 gzip.close();
+                is.close();
                 return true;
             } catch (Exception e) {
+                //e.printStackTrace();
                 return false;
             } finally {
                 if (buffer != null) {
@@ -257,14 +269,13 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
 
     public static void main(String[] args) throws Exception {
         ConcatGzipRecordReader reader = new ConcatGzipRecordReader();
-        reader.initialize("/home/gothos/warc/DOTUK-HISTORICAL-1996-2010-GROUP-AC-XAAUMV-20110428000000-00000.arc.gz");
+        reader.initialize(args[1]);
 
         int count = 0;
         while (reader.nextKeyValue()) {
             count++;
-            System.out.println(count);
-        }
 
-        System.out.println(count);
+            System.out.println("Count:" + count + " pos: " + reader.pos);
+        }
     }
 }
