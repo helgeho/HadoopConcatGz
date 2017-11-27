@@ -32,6 +32,27 @@ public class WarcRecord {
     public static final String MIME_TYPE_HTTP_HEADER = "Content-Type";
     public static final String DEFAULT_HTTP_STRING_CHARSET = "UTF-8";
 
+    /*
+    public static WarcRecord get(String filename, InputStream stream) throws IOException {
+        ArchiveReader reader = null;
+        try {
+            reader = ArchiveReaderFactory.get(filename, stream, false);
+            ArchiveRecord record = reader.get();
+            if (record == null) {
+                throw new IOException("Record is null!");
+            }
+            return new WarcRecord(record);
+        } catch (IOException readException) {
+            System.err.println("In WarcRecord.get(...): " + readException.getMessage());
+        } finally {
+            if (reader != null && reader.isValid()) {
+                reader.close();
+            }
+        }
+        return null;
+    }
+     */
+
     public static WarcRecord get(String filename, InputStream stream) throws IOException {
         ArchiveReader reader = null;
         try {
@@ -39,13 +60,41 @@ public class WarcRecord {
             ArchiveRecord record = reader.get();
             return new WarcRecord(record);
         } catch (Exception readException) {
-            readException.printStackTrace();
+            System.err.println("Exception while creating ArchiveRecord: " + readException.getMessage());
             if (reader != null) {
                 try {
                     reader.close();
                 } catch (Exception closeException) {
-                    closeException.printStackTrace();
+                    System.err.println("Exception while closing reader: " + closeException.getMessage());
                 }
+            }
+        } finally {
+            if (reader != null && reader.isValid()) {
+                reader.close();
+            }
+        }
+        return null;
+    }
+
+    public static WarcRecord get(String filename, InputStream stream, boolean atFirstRecord) throws IOException {
+        ArchiveReader reader = null;
+        try {
+            reader = ArchiveReaderFactory.get(filename, stream, atFirstRecord);
+            ArchiveRecord record = reader.get();
+            return new WarcRecord(record);
+        } catch (Exception readException) {
+            System.err.println("Exception while creating ArchiveRecord: " + readException.getMessage());
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (Exception closeException) {
+                    System.err.println("Exception while closing reader: " + closeException.getMessage());
+                }
+            }
+        } finally {
+            if (reader != null && reader.isValid()) {
+		//System.out.println("Closing reader! " + stream.available());
+		//                reader.close();
             }
         }
         return null;
@@ -138,11 +187,13 @@ public class WarcRecord {
     }
 
     public void close() {
+        /*
         try {
             record.close();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (NumberFormatException e) {
+        */
             /* This shit should not happen. Anyway. It happens when close() is called
             on an ArchiveRecord that then calls into WARCRecord (this is the one from
             the Internet Archive library, not this one, duh) to actually check if there
@@ -151,7 +202,9 @@ public class WarcRecord {
 
             /* Addendum: Yes, this should not be the ArchiveRecords responsibility, but
             rather the Readers */
+            /*
             e.printStackTrace();
         }
+        */
     }
 }
