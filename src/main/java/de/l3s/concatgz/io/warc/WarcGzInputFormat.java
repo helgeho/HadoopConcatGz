@@ -90,7 +90,7 @@ public class WarcGzInputFormat extends FileInputFormat<NullWritable, WarcWritabl
 
     public static void main(String[] args) throws Exception {
         WarcGzInputFormat.WarcRecordReader reader = new WarcGzInputFormat.WarcRecordReader();
-        reader.initialize("C:\\Users\\helge\\L3S\\Development\\javamr\\WarcLinkExtractor\\TA-00001-000000.warc.gz"); //args[1]);
+        reader.initialize(args[1]);
 
         int count = 0;
         while (reader.nextKeyValue()) {
