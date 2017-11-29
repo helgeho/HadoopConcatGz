@@ -94,4 +94,8 @@ public class FileBackedBytesWritable implements Writable, Serializable {
             throws IOException, ClassNotFoundException {
         readFields(ois);
     }
+
+    private void readObjectNoData() throws ObjectStreamException {
+        throw new NotActiveException("This method should never be called on FileBackedBytesWritable");
+    }
 }

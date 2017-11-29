@@ -32,33 +32,12 @@ public class WarcRecord {
     public static final String MIME_TYPE_HTTP_HEADER = "Content-Type";
     public static final String DEFAULT_HTTP_STRING_CHARSET = "UTF-8";
 
-    /*
     public static WarcRecord get(String filename, InputStream stream) throws IOException {
         ArchiveReader reader = null;
         try {
             reader = ArchiveReaderFactory.get(filename, stream, false);
             ArchiveRecord record = reader.get();
-            if (record == null) {
-                throw new IOException("Record is null!");
-            }
-            return new WarcRecord(record);
-        } catch (IOException readException) {
-            System.err.println("In WarcRecord.get(...): " + readException.getMessage());
-        } finally {
-            if (reader != null && reader.isValid()) {
-                reader.close();
-            }
-        }
-        return null;
-    }
-     */
-
-    public static WarcRecord get(String filename, InputStream stream) throws IOException {
-        ArchiveReader reader = null;
-        try {
-            reader = ArchiveReaderFactory.get(filename, stream, false);
-            ArchiveRecord record = reader.get();
-            return new WarcRecord(record);
+            return new WarcRecord(reader, record);
         } catch (Exception readException) {
             System.err.println("Exception while creating ArchiveRecord: " + readException.getMessage());
             if (reader != null) {
@@ -68,45 +47,20 @@ public class WarcRecord {
                     System.err.println("Exception while closing reader: " + closeException.getMessage());
                 }
             }
-        } finally {
-            if (reader != null && reader.isValid()) {
-                reader.close();
-            }
         }
+
         return null;
     }
 
-    public static WarcRecord get(String filename, InputStream stream, boolean atFirstRecord) throws IOException {
-        ArchiveReader reader = null;
-        try {
-            reader = ArchiveReaderFactory.get(filename, stream, atFirstRecord);
-            ArchiveRecord record = reader.get();
-            return new WarcRecord(record);
-        } catch (Exception readException) {
-            System.err.println("Exception while creating ArchiveRecord: " + readException.getMessage());
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (Exception closeException) {
-                    System.err.println("Exception while closing reader: " + closeException.getMessage());
-                }
-            }
-        } finally {
-            if (reader != null && reader.isValid()) {
-		//System.out.println("Closing reader! " + stream.available());
-		//                reader.close();
-            }
-        }
-        return null;
-    }
-
+    private ArchiveReader reader;
     private ArchiveRecord record;
     private boolean isHttp = true;
     private HttpResponse http = null;
     private Map<String, String> httpHeaders = null;
     private byte[] httpBody = null;
 
-    private WarcRecord(ArchiveRecord record) {
+    private WarcRecord(ArchiveReader reader, ArchiveRecord record) {
+        this.reader = reader;
         this.record = record;
     }
 
@@ -187,24 +141,10 @@ public class WarcRecord {
     }
 
     public void close() {
-        /*
         try {
-            record.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (NumberFormatException e) {
-        */
-            /* This shit should not happen. Anyway. It happens when close() is called
-            on an ArchiveRecord that then calls into WARCRecord (this is the one from
-            the Internet Archive library, not this one, duh) to actually check if there
-            is more data available. There is a parseLong in there and sometimes the length
-            of an archive is utter garbage. End of story, please go cry in a corner now. */
-
-            /* Addendum: Yes, this should not be the ArchiveRecords responsibility, but
-            rather the Readers */
-            /*
+            if (reader != null) reader.close();
+        } catch (Exception e) {
             e.printStackTrace();
         }
-        */
     }
 }

@@ -12,6 +12,7 @@
 
 package de.l3s.concatgz.io.warc;
 
+import de.l3s.concatgz.data.WarcRecord;
 import de.l3s.concatgz.io.ConcatGzipInputFormat;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
@@ -38,6 +39,10 @@ public class WarcGzInputFormat extends FileInputFormat<NullWritable, WarcWritabl
         @Override
         public void initialize(InputSplit genericSplit, TaskAttemptContext context) throws IOException, InterruptedException {
             gzip.initialize(genericSplit, context);
+        }
+
+        public void initialize(String path) throws IOException, InterruptedException {
+            gzip.initialize(path);
         }
 
         @Override
@@ -81,5 +86,19 @@ public class WarcGzInputFormat extends FileInputFormat<NullWritable, WarcWritabl
     @Override
     protected boolean isSplitable(JobContext context, Path filename) {
         return true;
+    }
+
+    public static void main(String[] args) throws Exception {
+        WarcGzInputFormat.WarcRecordReader reader = new WarcGzInputFormat.WarcRecordReader();
+        reader.initialize("C:\\Users\\helge\\L3S\\Development\\javamr\\WarcLinkExtractor\\TA-00001-000000.warc.gz"); //args[1]);
+
+        int count = 0;
+        while (reader.nextKeyValue()) {
+            count++;
+
+            WarcRecord record = reader.getCurrentValue().getRecord();
+            System.out.println("Count:" + count + ", header: " + record.getHeader());
+            if (record.isHttp()) System.out.println("Count:" + count + ", http: " + record.getHttpResponse().getMessage());
+        }
     }
 }

@@ -204,19 +204,20 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
                     return false;
                 }
 
-                gzip.close();
-                is.close();
+                //gzip.close();
                 return true;
-            } catch (Exception e) {
+            } catch (IOException e) {
                 //e.printStackTrace();
                 return false;
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
             } finally {
-                if (buffer != null) {
-                    is.close();
+                is.close();
+
+                if (buffer != null) {                    
                     cache.unread(buffer);
                 }
-
-                dataStream.close();
             }
         }
 
@@ -229,13 +230,18 @@ public class ConcatGzipInputFormat extends FileInputFormat<Text, FileBackedBytes
         public boolean nextKeyValue() throws IOException, InterruptedException {
             if (!hasNext) return false;
 
-            FileBackedOutputStream record = new FileBackedOutputStream(BUFFER_SIZE * BUFFER_SIZE);
-            hasNext = skipToNextRecord(record);
-            key.set(filename + ":" + lastRecordOffset);
-            hasNext = hasNext && pos < end;
+            try {
+                FileBackedOutputStream record = new FileBackedOutputStream(BUFFER_SIZE * BUFFER_SIZE);
+                hasNext = skipToNextRecord(record);
+                key.set(filename + ":" + lastRecordOffset);
+                hasNext = hasNext && pos < end;
 
-            value.closeStream();
-            value.set(record);
+                value.closeStream();
+                value.set(record);
+            } catch (Exception e) {
+                hasNext = false;
+                e.printStackTrace();
+            }
             return hasNext;
         }
 
