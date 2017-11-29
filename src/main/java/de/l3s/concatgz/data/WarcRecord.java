@@ -54,26 +54,7 @@ public class WarcRecord {
      */
 
     public static WarcRecord get(String filename, InputStream stream) throws IOException {
-        ArchiveReader reader = null;
-        try {
-            reader = ArchiveReaderFactory.get(filename, stream, false);
-            ArchiveRecord record = reader.get();
-            return new WarcRecord(record);
-        } catch (Exception readException) {
-            System.err.println("Exception while creating ArchiveRecord: " + readException.getMessage());
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (Exception closeException) {
-                    System.err.println("Exception while closing reader: " + closeException.getMessage());
-                }
-            }
-        } finally {
-            if (reader != null && reader.isValid()) {
-                reader.close();
-            }
-        }
-        return null;
+        return WarcRecord.get(filename, stream, false);
     }
 
     public static WarcRecord get(String filename, InputStream stream, boolean atFirstRecord) throws IOException {
@@ -91,12 +72,8 @@ public class WarcRecord {
                     System.err.println("Exception while closing reader: " + closeException.getMessage());
                 }
             }
-        } finally {
-            if (reader != null && reader.isValid()) {
-		//System.out.println("Closing reader! " + stream.available());
-		//                reader.close();
-            }
         }
+
         return null;
     }
 
