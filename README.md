@@ -114,15 +114,14 @@ The easiest way to build a JAR file of this project that you can add to your Had
 ## Maven
 
 If you want to add this library as a dependency to your project, you can get it from the [Internet Archive](http://archive.org)'s build server under http://builds.archive.org/maven2/de/l3s/hadoop-concat-gz (thanks for hosting this!).
+The artifact is also available through [Maven Central](https://search.maven.org/#artifactdetails|com.github.helgeho|hadoop-concat-gz|1.2|jar) (may not be the latest release).
 
-In order to use it with your [Spark](http://spark.apache.org) project, add this as a new resolver:
-```scala
-resolvers ++= Seq("internetarchive" at "http://builds.archive.org/maven2")
-```
+In order to get it from the Internet Archive build server in your [Spark](http://spark.apache.org) project, add this as a new resolver:
+`resolvers ++= Seq("internetarchive" at "http://builds.archive.org/maven2")`
 
-Now you can add the dependency as follows:
+Now you can add the dependency as follows (please check for the newest version):
 ```scala
-libraryDependencies ++= Seq("de.l3s" % "hadoop-concat-gz" % "1.0-SNAPSHOT")
+libraryDependencies ++= Seq("com.github.helgeho" % "hadoop-concat-gz" % "1.2")
 ```
 
 Finally, load your WARC dataset into an RDD:

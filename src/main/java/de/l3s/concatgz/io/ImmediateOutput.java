@@ -128,7 +128,7 @@ public class ImmediateOutput {
         OutputStream stream = streams.get(path.toString());
         if (stream == null) {
             fs.mkdirs(path.getParent());
-            stream = fs.create(path, true, bufferSize, replication, fs.getDefaultBlockSize(path));
+            stream = fs.create(path, true, bufferSize, replication, fs.getDefaultBlockSize());
             streams.put(path.toString(), stream);
         }
         return stream;
