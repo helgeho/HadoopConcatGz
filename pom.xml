@@ -4,7 +4,7 @@
     <groupId>com.github.helgeho</groupId>
     <artifactId>hadoop-concat-gz</artifactId>
     <packaging>jar</packaging>
-    <version>1.2</version>
+    <version>1.2.1</version>
     <name>HadoopConcatGz</name>
     <url>https://github.com/helgeho/HadoopConcatGz</url>
     <description>A Splitable Hadoop InputFormat for Concatenated GZIP Files and *.(w)arc.gz</description>
