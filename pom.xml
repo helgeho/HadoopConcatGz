@@ -4,7 +4,7 @@
     <groupId>com.github.helgeho</groupId>
     <artifactId>hadoop-concat-gz</artifactId>
     <packaging>jar</packaging>
-    <version>1.2.1</version>
+    <version>1.2.2</version>
     <name>HadoopConcatGz</name>
     <url>https://github.com/helgeho/HadoopConcatGz</url>
     <description>A Splitable Hadoop InputFormat for Concatenated GZIP Files and *.(w)arc.gz</description>
@@ -46,12 +46,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.netpreserve.commons</groupId>
-            <artifactId>webarchive-commons</artifactId>
-            <version>1.1.8</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-mapreduce-client-core</artifactId>
             <version>2.6.0</version>
@@ -70,6 +64,12 @@
             <artifactId>hadoop-mapreduce-client-common</artifactId>
             <version>2.6.0</version>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.netpreserve.commons</groupId>
+            <artifactId>webarchive-commons</artifactId>
+            <version>1.1.8</version>
         </dependency>
 
     </dependencies>
